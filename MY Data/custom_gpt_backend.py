@@ -1,81 +1,19 @@
 import os
-import subprocess
-import PyPDF2  # For PDF handling
+import matplotlib.pyplot as plt
+import pandas as pd
+import PyPDF2
 
-# Configure the path to the MY DATA folder
-BASE_PATH = "/Users/pconnor/Desktop/Custom GPT Files/LinkedIn Data Analyzer"
-DATA_PATH = os.path.join(BASE_PATH, "MY Data")  # Correctly locate MY DATA folder
-
-# Define available scripts and their purposes
-SCRIPTS = {
-    "analyze_connections": os.path.join(BASE_PATH, "analyze_connections.py"),
-    "analyze_content": os.path.join(BASE_PATH, "analyze_content.py"),
-    "generate_visualizations": os.path.join(BASE_PATH, "generate_visualizations.py"),
-    "process_messages": os.path.join(BASE_PATH, "process_messages.py"),
-    "demographics_analysis": os.path.join(BASE_PATH, "demographics_analysis.py"),
-    "process_feed_pdf": os.path.join(BASE_PATH, "process_feed_pdf.py"),
-}
-
-# Supported file types
-SUPPORTED_FILE_TYPES = {
-    "csv": ["Connections.csv", "messages.csv"],
-    "excel": ["Content.xlsx", "Engagement.xlsx", "Discovery.xlsx"],
-    "pdf": ["feed.pdf"],
-}
-
-# Function to install dependencies
-def install_dependencies():
-    """Installs dependencies listed in requirements.txt."""
-    requirements_file = os.path.join(BASE_PATH, "requirements.txt")
-    if os.path.exists(requirements_file):
-        try:
-            subprocess.run(["pip", "install", "-r", requirements_file], check=True)
-            print("Dependencies installed successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error installing dependencies: {e}")
-    else:
-        print("requirements.txt not found. Skipping dependency installation.")
-
-# Function to execute a specific script
-def run_script(script_name, *args):
-    """
-    Executes a script from the repository with optional arguments.
-
-    Parameters:
-    - script_name (str): Name of the script to run (must match a key in SCRIPTS).
-    - *args: Arguments to pass to the script.
-
-    Returns:
-    - str: Output from the script or error message.
-    """
-    script_path = SCRIPTS.get(script_name)
-    if not script_path or not os.path.exists(script_path):
-        return f"Error: Script '{script_name}' not found."
-    
-    try:
-        result = subprocess.run(
-            ["python", script_path] + list(args),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            return result.stdout
-        else:
-            return f"Script execution failed: {result.stderr}"
-    except Exception as e:
-        return f"Error running the script: {e}"
+# Define the analysis workflow
+ANALYSIS_WORKFLOW = [
+    {"file_name": "Feed.pdf", "script": "process_feed_pdf", "description": "Analyze your LinkedIn feed content for post categories and trends."},
+    {"file_name": "Connections.csv", "script": "analyze_connections", "description": "Analyze your LinkedIn connections to identify trends and underrepresented industries."},
+    {"file_name": "messages.csv", "script": "process_messages", "description": "Analyze your LinkedIn messages for trends and key communication patterns."},
+    {"file_name": "Content.xlsx", "script": "analyze_content", "description": "Analyze your LinkedIn content performance, including impressions and engagements."},
+    {"file_name": "Rich_Media.csv", "script": "rich_media_analyze", "description": "Analyze the performance of your videos, images, and documents on LinkedIn."},
+]
 
 # Function to process PDF files
 def process_pdf(file_path):
-    """
-    Extracts text from a PDF file for further processing.
-
-    Parameters:
-    - file_path (str): The path to the PDF file.
-
-    Returns:
-    - str: Extracted text or an error message.
-    """
     try:
         with open(file_path, "rb") as pdf_file:
             reader = PyPDF2.PdfReader(pdf_file)
@@ -84,69 +22,99 @@ def process_pdf(file_path):
     except Exception as e:
         return f"Error reading PDF file: {e}"
 
-# Function to determine the appropriate script based on file type and name
-def determine_script(file_name):
-    """
-    Determines which script to use based on the file name.
+# Function to handle Feed.pdf
+def process_feed_pdf(file_path):
+    # Example: Simulating feed analysis logic
+    feed_data = process_pdf(file_path)
+    if "Error" in feed_data:
+        return feed_data
+    categories = ["Promotional Content", "Educational Content", "Thought Leadership", "Personal Updates", "Uncategorized"]
+    num_posts = [18, 9, 6, 1, 2]  # Simulated data
+    plt.bar(categories, num_posts)
+    plt.title("Feed Analysis: Number of Posts by Category")
+    plt.show()
+    return "Feed analysis completed with simulated data."
 
-    Parameters:
-    - file_name (str): The name of the file provided.
+# Function to analyze connections
+def analyze_connections(file_path):
+    try:
+        data = pd.read_csv(file_path, skiprows=3)
+        data['Connected On'] = pd.to_datetime(data['Connected On'], errors='coerce')
+        yearly_trends = data['Connected On'].dt.year.value_counts().sort_index()
+        yearly_trends.plot(kind="bar", title="Connections Growth by Year")
+        plt.show()
+        return "Connections analysis completed."
+    except Exception as e:
+        return f"Error processing Connections.csv: {e}"
 
-    Returns:
-    - str: The name of the script to execute or None if unsupported.
-    """
-    ext = file_name.split('.')[-1].lower()
-    if ext == "csv" and "Connections" in file_name:
-        return "analyze_connections"
-    elif ext == "csv" and "messages" in file_name:
-        return "process_messages"
-    elif ext in ["xlsx", "xlsm", "xls"]:
-        return "analyze_content"
-    elif ext == "pdf" and "feed" in file_name.lower():
-        return "process_feed_pdf"
-    return None
+# Function to handle messages.csv
+def process_messages(file_path):
+    try:
+        data = pd.read_csv(file_path)
+        data['DATE'] = pd.to_datetime(data['DATE'], errors='coerce')
+        data['Year-Month'] = data['DATE'].dt.to_period('M')
+        trends = data.groupby(['Year-Month']).size()
+        trends.plot(title="Message Trends Over Time")
+        plt.show()
+        return "Message analysis completed."
+    except Exception as e:
+        return f"Error processing messages.csv: {e}"
 
-# Main function to handle file input and execute the correct script
-def handle_file(file_path):
-    """
-    Handles processing of a given file by determining the appropriate script.
+# Function to analyze content.xlsx
+def analyze_content(file_path):
+    try:
+        data = pd.read_excel(file_path)
+        data['Engagement Rate'] = data['Engagement'] / data['Impressions'] * 100
+        avg_engagement = data.groupby('Content Type')['Engagement Rate'].mean()
+        avg_engagement.plot(kind="bar", title="Average Engagement Rate by Content Type")
+        plt.show()
+        return "Content analysis completed."
+    except Exception as e:
+        return f"Error processing Content.xlsx: {e}"
 
-    Parameters:
-    - file_path (str): The full path to the file.
+# Function to analyze rich media
+def rich_media_analyze(file_path):
+    try:
+        data = pd.read_csv(file_path)
+        media_types = data['Media Type'].value_counts()
+        media_types.plot(kind="bar", title="Media Type Distribution")
+        plt.show()
+        return "Rich media analysis completed."
+    except Exception as e:
+        return f"Error processing Rich_Media.csv: {e}"
 
-    Returns:
-    - str: The output from the executed script or an error message.
-    """
-    file_name = os.path.basename(file_path)
-    script_name = determine_script(file_name)
+# Main function to guide users
+def main():
+    print("Welcome! I will guide you through a step-by-step LinkedIn data analysis process.")
+    for step in ANALYSIS_WORKFLOW:
+        print(f"\nStep: {step['description']}")
+        file_path = input(f"Please upload your {step['file_name']} file (enter the full path): ").strip()
+        
+        if not os.path.exists(file_path):
+            choice = input(f"File {step['file_name']} not found. Would you like to skip this step? (yes/no): ").strip().lower()
+            if choice == "yes":
+                print(f"Skipping {step['file_name']} analysis.")
+                continue
+            else:
+                print("Please ensure the file exists and try again.")
+                break
+        
+        print(f"Processing {step['file_name']}...")
+        script_name = step['script']
+        if script_name == "process_feed_pdf":
+            print(process_feed_pdf(file_path))
+        elif script_name == "analyze_connections":
+            print(analyze_connections(file_path))
+        elif script_name == "process_messages":
+            print(process_messages(file_path))
+        elif script_name == "analyze_content":
+            print(analyze_content(file_path))
+        elif script_name == "rich_media_analyze":
+            print(rich_media_analyze(file_path))
+        else:
+            print(f"Script for {step['file_name']} not found.")
 
-    if not script_name:
-        return f"Unsupported file type or name: {file_name}"
+    print("\nAnalysis complete! Thank you for providing your data.")
 
-    if script_name == "process_feed_pdf":
-        # Special handling for PDFs
-        extracted_text = process_pdf(file_path)
-        if "Error" in extracted_text:
-            return extracted_text
-        # Pass extracted text to the relevant script
-        return run_script(script_name, extracted_text)
-    else:
-        # For other file types, pass the file path to the script
-        return run_script(script_name, file_path)
-
-# Updated prompt for file path input
 if __name__ == "__main__":
-    install_dependencies()
-    print(f"Place all your files in the 'MY DATA' folder at: {DATA_PATH}")
-    # Prompt for file path
-    file_path = input("Enter the name of the file you want to analyze (e.g., Connections.csv): ").strip()
-    
-    # Resolve file path within MY DATA folder
-    resolved_path = os.path.join(DATA_PATH, file_path)
-
-    # Check if file exists
-    if os.path.exists(resolved_path):
-        print(f"Processing file: {resolved_path}")
-        print(handle_file(resolved_path))  # Run the appropriate analysis
-    else:
-        print(f"Error: File '{resolved_path}' does not exist.")
+    main()
