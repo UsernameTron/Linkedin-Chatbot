@@ -5,3 +5,4 @@ numpy
 wordcloud
 streamlit-chat
 pdfplumber
+openpyxl
